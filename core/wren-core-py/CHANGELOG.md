@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.2](https://github.com/Canner/WrenAI/compare/wren-core-py-v0.7.1...wren-core-py-v0.7.2) (2026-07-09)
+
+
+### Bug Fixes
+
+* **deps:** patch idna, cryptography, and pytest security advisories ([#2458](https://github.com/Canner/WrenAI/issues/2458)) ([8c72492](https://github.com/Canner/WrenAI/commit/8c724925aae679281e30a872469ecf20d85a854c))
+* finish wren-engine → wrenai rename cleanup ([#2425](https://github.com/Canner/WrenAI/issues/2425)) ([0733d37](https://github.com/Canner/WrenAI/commit/0733d379e15f041235bd7ff7449ecc421834a7f4))
+
 ## [0.7.1](https://github.com/Canner/WrenAI/compare/wren-core-py-v0.7.0...wren-core-py-v0.7.1) (2026-06-22)
 
 
