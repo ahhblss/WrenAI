@@ -38,7 +38,7 @@ Options:
 | `--profile` | project / active | Profile to use |
 | `--host` / `--port` | `127.0.0.1` / `8765` | Bind address |
 | `--token` | `$WREN_MCP_TOKEN` | Bearer token clients must send (required) |
-| `--read-only` | off | Drop write/mutation tools (`wren_store_query`, `wren_context_build`, ...) |
+| `--read-only` | off | Gate write/mutation tools (`wren_store_query` dropped; `wren_context_build`, `wren_profile_add/remove/switch`, `wren_memory_index/load/forget/reset`, `wren_genbi_deploy` return a read-only error) |
 | `--tools` | `all` | `tier1` (6 core tools) or `all` (full surface) |
 
 The server listens on `http://<host>:<port>/mcp` (streamable-http, bearer auth).
@@ -71,13 +71,16 @@ Point the client at the streamable-http URL with an `Authorization: Bearer <toke
 **Tier 2** (`--tools all`, default):
 - `wren_context_show` / `wren_context_build` / `wren_context_validate` / `wren_context_instructions`
 - `wren_cube_list` / `wren_cube_describe` / `wren_cube_query`
-- `wren_profile_list` / `wren_profile_debug`
+- `wren_profile_list` / `wren_profile_debug` (sensitive fields masked)
+- `wren_profile_add` / `wren_profile_remove` / `wren_profile_switch` - edit `~/.wren/profiles.yml`; `--read-only` gated. Switching does NOT re-route the running server (pinned at startup) - restart to serve a new profile.
 - `wren_memory_describe` / `wren_memory_status`
+- `wren_memory_index` / `wren_memory_load` / `wren_memory_dump` / `wren_memory_forget` / `wren_memory_reset` - Qdrant index management; `reset` requires `force=true`; write tools `--read-only` gated (`dump` is read-only).
+- `wren_genbi_deploy` - verify + ship a registered app to Vercel/Cloudflare; irreversible (public URL); token read from env, never an argument; `--read-only` gated.
 - `wren_parse_type` / `wren_translate_type`
 - `wren_ask` / `wren_skills_list` / `wren_skills_get`
 - `wren_docs_connection_info`
 
-Long-running / destructive commands (`memory watch`/`reset`/`index`, `genbi open`/`deploy`, `profile add`/`rm`/`switch`) are **not** exposed over MCP in v1 — they change global `~/.wren` state or block; use the CLI.
+Side-effect tools (`profile add/rm/switch`, `memory index/load/forget/reset`, `genbi deploy`, `context build`) return a `read-only` error envelope when `--read-only` is set, instead of disappearing - so agents get actionable feedback. The long-running `memory watch` and `genbi open` (blocking servers) are not exposed over MCP - run them from the CLI.
 
 ## Output contract
 

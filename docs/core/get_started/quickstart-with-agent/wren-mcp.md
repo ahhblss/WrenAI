@@ -37,7 +37,7 @@ Options:
 | `--profile` | project / active | Profile to use |
 | `--host` / `--port` | `127.0.0.1` / `8765` | Bind address |
 | `--token` | `$WREN_MCP_TOKEN` | Bearer token clients must send (required) |
-| `--read-only` | off | Drop write/mutation tools |
+| `--read-only` | off | Gate write/mutation tools (return a read-only error; `wren_store_query` dropped) |
 | `--tools` | `all` | `tier1` (6 core) or `all` (full surface) |
 
 ## Agent configuration
@@ -70,13 +70,16 @@ Point the client at the streamable-http URL with an `Authorization: Bearer <toke
 
 - context: `wren_context_show` / `wren_context_build` / `wren_context_validate` / `wren_context_instructions`
 - cube: `wren_cube_list` / `wren_cube_describe` / `wren_cube_query`
-- profile: `wren_profile_list` / `wren_profile_debug` (sensitive fields masked)
-- memory: `wren_memory_describe` / `wren_memory_status`
+- profile (read): `wren_profile_list` / `wren_profile_debug` (sensitive fields masked)
+- profile (mutate): `wren_profile_add` / `wren_profile_remove` / `wren_profile_switch` - edit `~/.wren/profiles.yml`; `--read-only` gated. Switching does NOT re-route the running server (pinned at startup); restart to serve a new profile.
+- memory (read): `wren_memory_describe` / `wren_memory_status`
+- memory (mutate): `wren_memory_index` / `wren_memory_load` / `wren_memory_dump` / `wren_memory_forget` / `wren_memory_reset` - Qdrant index management; `reset` requires `force=true`; write tools `--read-only` gated (`dump` is read-only).
+- genbi: `wren_genbi_deploy` - verify + ship a registered app to Vercel/Cloudflare; irreversible (public URL); token read from env, never an argument; `--read-only` gated.
 - types: `wren_parse_type` / `wren_translate_type`
 - ask/skills: `wren_ask` / `wren_skills_list` / `wren_skills_get`
 - docs: `wren_docs_connection_info`
 
-Long-running / destructive commands (`memory watch/reset/index`, `genbi open/deploy`, `profile add/rm/switch`) are **not** exposed over MCP — they change global `~/.wren` state or block. Use the CLI.
+Side-effect tools (`profile add/rm/switch`, `memory index/load/forget/reset`, `genbi deploy`, `context build`) return a `read-only` error envelope when `--read-only` is set, instead of disappearing - so agents get actionable feedback. The long-running `memory watch` and `genbi open` (blocking servers) are not exposed over MCP; run them from the CLI.
 
 ### Typical agent workflow
 

@@ -151,3 +151,28 @@ def format_list_models_content(manifest: dict[str, Any]) -> str:
             desc = desc[:77] + "..."
         lines.append(f"| {name} | {col_count} | {desc} |")
     return "\n".join(lines)
+
+
+def format_memory_dump_content(
+    rows: list[dict[str, Any]],
+) -> tuple[str, list[str]]:
+    """Render dumped pairs as a compact numbered preview, byte-capped.
+
+    Returns ``(content, warnings)``. The full pair list is in the envelope
+    ``data`` field; the content is a preview so the LLM isn't flooded when
+    hundreds of pairs are stored.
+    """
+    if not rows:
+        return "_No pairs stored._", []
+    lines = []
+    for i, r in enumerate(rows, start=1):
+        nl = (r.get("nl_query") or r.get("nl") or "")[:60]
+        sql = (r.get("sql_query") or r.get("sql") or "").replace("\n", " ")[:50]
+        lines.append(f'{i}. "{nl}" -> {sql}')
+    full = "\n".join(lines)
+    if len(full.encode("utf-8")) <= CONTENT_CAP_BYTES:
+        return full, []
+    truncated = _cap_to_bytes(full, suffix="\n...[truncated]")
+    return truncated, [
+        f"content truncated: {len(rows)} pairs; full data in the data field"
+    ]
