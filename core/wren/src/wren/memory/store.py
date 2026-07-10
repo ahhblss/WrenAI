@@ -93,6 +93,9 @@ class MemoryStore:
         self._client = QdrantClient(
             url=resolved_url,
             api_key=api_key or os.environ.get("QDRANT_API_KEY"),
+            # Bound Qdrant calls so an unreachable server can't hold the
+            # caller's lock indefinitely (qdrant-client default is no timeout).
+            timeout=float(os.getenv("WREN_QDRANT_TIMEOUT", "30")),
         )
 
     @property

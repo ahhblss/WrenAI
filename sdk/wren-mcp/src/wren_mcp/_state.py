@@ -89,6 +89,12 @@ class ServerState:
         # Serializes all engine/connector/memory calls - they are blocking and
         # not concurrency-safe (one cached psycopg connection, etc.).
         self.engine_lock = asyncio.Lock()
+        # Hard ceiling on any single tool call. A hung connector/embedding
+        # call can't hold engine_lock longer than this: run_blocked releases
+        # the lock on timeout so the server stays responsive (the worker
+        # thread itself can't be force-stopped, but it no longer blocks
+        # other calls). Defaults high enough that normal queries never trip.
+        self.tool_timeout = float(os.getenv("WREN_MCP_TOOL_TIMEOUT", "120"))
 
     # ── Engine construction (mirrors WrenToolkit._build_engine) ──────────
 

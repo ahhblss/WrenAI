@@ -10,6 +10,11 @@ Configuration (environment variables):
   - ``VOLC_ARK_BASE_URL``     - Ark base URL (default: ark.cn-beijing.volces.com/api/v3)
   - ``WREN_EMBEDDING_MODEL``  - model name (default: doubao-embedding-text-240715)
   - ``WREN_EMBEDDING_BATCH_SIZE`` - texts per API call (default: 16)
+  - ``WREN_EMBEDDING_TIMEOUT`` - per-request timeout in seconds (default: 30).
+    Bounds the call so an unreachable Ark endpoint can't hold a caller's lock
+    for the OpenAI SDK default (600s read timeout).
+  - ``WREN_EMBEDDING_MAX_RETRIES`` - SDK retries on transient failure (default: 1).
+    The SDK default of 2 triples worst-case wall time on an unreachable endpoint.
 """
 
 from __future__ import annotations
@@ -77,6 +82,10 @@ class VolcArkEmbedding(EmbeddingProvider):
             api_key=resolved_key,
             base_url=base_url
             or os.environ.get("VOLC_ARK_BASE_URL", _DEFAULT_BASE_URL),
+            # Bound the call so an unreachable Ark endpoint can't hold the
+            # caller's lock for the SDK default (600s read + 2 retries ~ 30min).
+            timeout=float(os.getenv("WREN_EMBEDDING_TIMEOUT", "30")),
+            max_retries=int(os.getenv("WREN_EMBEDDING_MAX_RETRIES", "1")),
         )
         self._dim: int | None = None
 
