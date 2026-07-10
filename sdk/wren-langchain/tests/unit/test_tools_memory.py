@@ -25,7 +25,7 @@ def test_get_tools_returns_six_tools_when_memory_enabled(
     project = _enable_memory(tmp_project, monkeypatch)
     fake_store = MagicMock(name="MemoryStore")
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         names = sorted(t.name for t in toolkit.get_tools())
 
@@ -45,7 +45,7 @@ def test_include_memory_write_false_removes_store_query(
     project = _enable_memory(tmp_project, monkeypatch)
     fake_store = MagicMock(name="MemoryStore")
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         names = sorted(t.name for t in toolkit.get_tools(include_memory_write=False))
 
@@ -86,7 +86,7 @@ def test_wren_fetch_context_full_strategy(tmp_project, fake_active_profile, monk
         "schema": "Schema text describing models...",
     }
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         tool = next(t for t in toolkit.get_tools() if t.name == "wren_fetch_context")
         envelope = tool.invoke({"question": "what models exist?"})
@@ -107,7 +107,7 @@ def test_wren_fetch_context_search_strategy(tmp_project, fake_active_profile, mo
         ],
     }
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         tool = next(t for t in toolkit.get_tools() if t.name == "wren_fetch_context")
         envelope = tool.invoke({"question": "orders"})
@@ -126,7 +126,7 @@ def test_wren_recall_queries_formats_as_numbered_list(tmp_project, fake_active_p
         {"nl_query": "revenue by region", "sql_query": "SELECT region, SUM(revenue)"},
     ]
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         tool = next(t for t in toolkit.get_tools() if t.name == "wren_recall_queries")
         envelope = tool.invoke({"question": "customer rankings"})
@@ -144,7 +144,7 @@ def test_wren_store_query_returns_short_success_message(
     project = _enable_memory(tmp_project, monkeypatch)
     fake_store = MagicMock(name="MemoryStore")
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         tool = next(t for t in toolkit.get_tools() if t.name == "wren_store_query")
         envelope = tool.invoke(

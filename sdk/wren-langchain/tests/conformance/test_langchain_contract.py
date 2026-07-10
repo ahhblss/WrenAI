@@ -39,7 +39,7 @@ def _all_tools(tmp_project):
     fake_engine._connector = MagicMock()
 
     with (
-        patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store),
+        patch("wren.providers.memory.MemoryStore", return_value=fake_store),
         patch("wren_langchain._toolkit.WrenEngine", return_value=fake_engine),
     ):
         toolkit = WrenToolkit.from_project(tmp_project)

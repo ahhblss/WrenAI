@@ -24,7 +24,7 @@ def test_memory_fetch_calls_get_context_with_manifest(
 
     toolkit = WrenToolkit.from_project(project)
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         result = toolkit.memory.fetch("revenue trends", limit=3)
 
     assert result == {"strategy": "search", "results": []}
@@ -45,7 +45,7 @@ def test_memory_recall_calls_recall_queries(
 
     toolkit = WrenToolkit.from_project(project)
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         result = toolkit.memory.recall("top customers", limit=5)
 
     assert result == [{"nl": "x", "sql": "SELECT 1"}]
@@ -60,7 +60,7 @@ def test_memory_store_calls_store_query(
 
     toolkit = WrenToolkit.from_project(project)
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit.memory.store(
             nl="top customers",
             sql="SELECT * FROM customers ORDER BY revenue DESC LIMIT 10",
@@ -97,7 +97,7 @@ def test_memory_store_rejects_tags_containing_commas(
 
     toolkit = WrenToolkit.from_project(project)
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         with pytest.raises(ValueError, match="comma"):
             toolkit.memory.store(nl="x", sql="SELECT 1", tags=["revenue, Q1"])
 
@@ -116,7 +116,7 @@ def test_memory_store_caches_across_calls(
     toolkit = WrenToolkit.from_project(project)
 
     with patch(
-        "wren_langchain._providers.memory.MemoryStore", return_value=fake_store
+        "wren.providers.memory.MemoryStore", return_value=fake_store
     ) as ctor:
         toolkit.memory.fetch("x")
         toolkit.memory.recall("y")

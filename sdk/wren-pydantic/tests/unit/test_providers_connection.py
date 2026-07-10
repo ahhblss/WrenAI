@@ -2,7 +2,7 @@
 
 import pytest
 
-from wren_pydantic._providers.connection import ProfileConnectionProvider
+from wren.providers.connection import ProfileConnectionProvider
 from wren_pydantic.exceptions import WrenToolkitInitError
 
 
@@ -13,11 +13,11 @@ def test_explicit_profile_kwarg_resolves_first(monkeypatch, tmp_path):
         "dev": {"datasource": "duckdb", "path": ":memory:"},
     }
     monkeypatch.setattr(
-        "wren_pydantic._providers.connection.list_profiles",
+        "wren.providers.connection.list_profiles",
         lambda: fake_profiles,
     )
     monkeypatch.setattr(
-        "wren_pydantic._providers.connection.get_active_profile",
+        "wren.providers.connection.get_active_profile",
         lambda: ("dev", fake_profiles["dev"]),
     )
 
@@ -37,11 +37,11 @@ def test_project_config_profile_field_resolves_second(monkeypatch, tmp_path):
         "active": {"datasource": "duckdb", "path": ":memory:"},
     }
     monkeypatch.setattr(
-        "wren_pydantic._providers.connection.list_profiles",
+        "wren.providers.connection.list_profiles",
         lambda: fake_profiles,
     )
     monkeypatch.setattr(
-        "wren_pydantic._providers.connection.get_active_profile",
+        "wren.providers.connection.get_active_profile",
         lambda: ("active", fake_profiles["active"]),
     )
     (tmp_path / "wren_project.yml").write_text("profile: from_project\n")
@@ -57,11 +57,11 @@ def test_active_profile_resolves_third_when_no_explicit_or_project(
 ):
     """Layer 3: globally active profile is used when no explicit and no project config."""
     monkeypatch.setattr(
-        "wren_pydantic._providers.connection.list_profiles",
+        "wren.providers.connection.list_profiles",
         lambda: {"only": {"datasource": "snowflake"}},
     )
     monkeypatch.setattr(
-        "wren_pydantic._providers.connection.get_active_profile",
+        "wren.providers.connection.get_active_profile",
         lambda: ("only", {"datasource": "snowflake", "account": "abc"}),
     )
 
@@ -73,7 +73,7 @@ def test_active_profile_resolves_third_when_no_explicit_or_project(
 
 def test_unknown_profile_name_raises(monkeypatch, tmp_path):
     monkeypatch.setattr(
-        "wren_pydantic._providers.connection.list_profiles",
+        "wren.providers.connection.list_profiles",
         lambda: {"prod": {"datasource": "postgres", "host": "x"}},
     )
 

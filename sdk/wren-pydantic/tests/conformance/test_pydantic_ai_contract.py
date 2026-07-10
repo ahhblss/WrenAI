@@ -64,7 +64,7 @@ def test_six_tools_when_memory_enabled_and_write_allowed(
 ):
     (tmp_project / ".wren" / "memory").mkdir(parents=True)
     fake_store = MagicMock(name="MemoryStore")
-    with patch("wren_pydantic._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(tmp_project)
         ts = toolkit.toolset()
     assert len(_names(ts)) == 6

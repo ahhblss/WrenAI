@@ -33,7 +33,7 @@ def test_qdrant_provider_open_constructs_memory_store():
 
     fake_store = MagicMock(name="MemoryStore")
     with patch(
-        "wren_pydantic._providers.memory.MemoryStore",
+        "wren.providers.memory.MemoryStore",
         return_value=fake_store,
     ) as ctor:
         store = provider.open()

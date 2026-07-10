@@ -5,7 +5,10 @@ from unittest.mock import MagicMock, patch
 from wren_langchain import WrenToolkit
 
 
-def _enable_memory(tmp_project):
+def _enable_memory(tmp_project, monkeypatch):
+    # Memory is enabled by QDRANT_URL (the .wren/memory marker is legacy).
+    # Set a dummy URL so _resolve_memory_provider selects QdrantMemoryProvider.
+    monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     (tmp_project / ".wren" / "memory").mkdir(parents=True)
     return tmp_project
 
@@ -45,12 +48,12 @@ def test_system_prompt_omits_memory_tools_when_disabled(
 
 
 def test_system_prompt_includes_memory_tools_when_enabled(
-    tmp_project, fake_active_profile
+    tmp_project, fake_active_profile, monkeypatch
 ):
-    project = _enable_memory(tmp_project)
+    project = _enable_memory(tmp_project, monkeypatch)
     fake_store = MagicMock(name="MemoryStore")
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         prompt = toolkit.system_prompt()
 
@@ -81,15 +84,16 @@ def test_system_prompt_silently_skips_instructions_when_absent(
     assert "Project-specific instructions" not in prompt
 
 
-def test_memory_workflow_uses_strong_default_language(tmp_project, fake_active_profile):
+def test_memory_workflow_uses_strong_default_language(
+    tmp_project, fake_active_profile, monkeypatch
+):
     """Memory-enabled prompt must use 'by default'/'only when' phrasing,
     not hedge words like 'non-trivial' or 'useful', because empirical testing
     showed soft phrasing causes GPT-4o to skip recall/store reliably."""
-    project = tmp_project
-    (project / ".wren" / "memory").mkdir(parents=True)
+    project = _enable_memory(tmp_project, monkeypatch)
     fake_store = MagicMock(name="MemoryStore")
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         prompt = toolkit.system_prompt()
 
@@ -114,17 +118,16 @@ def test_error_phase_guidance_present_in_prompt(tmp_project, fake_active_profile
 
 
 def test_system_prompt_respects_include_memory_write_false(
-    tmp_project, fake_active_profile
+    tmp_project, fake_active_profile, monkeypatch
 ):
     """When the caller passes a tool list with `wren_store_query` filtered out,
     the workflow must drop the persistence step and the tools section must not
     list it. Otherwise the prompt would tell the LLM to call a tool the agent
     doesn't actually have."""
-    project = tmp_project
-    (project / ".wren" / "memory").mkdir(parents=True)
+    project = _enable_memory(tmp_project, monkeypatch)
     fake_store = MagicMock(name="MemoryStore")
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         tools_no_write = toolkit.get_tools(include_memory_write=False)
         prompt = toolkit.system_prompt(tools=tools_no_write)
@@ -134,17 +137,18 @@ def test_system_prompt_respects_include_memory_write_false(
     assert "wren_recall_queries" in prompt
     # Write tool dropped both from workflow steps and tools listing.
     assert "wren_store_query" not in prompt
-    assert "Persist the NL→SQL pair" not in prompt
+    assert "Persist the NL->SQL pair" not in prompt
 
 
-def test_system_prompt_default_uses_full_tool_set(tmp_project, fake_active_profile):
+def test_system_prompt_default_uses_full_tool_set(
+    tmp_project, fake_active_profile, monkeypatch
+):
     """Without an explicit tools= override, the prompt mirrors get_tools()
-    defaults — full memory workflow when memory is enabled."""
-    project = tmp_project
-    (project / ".wren" / "memory").mkdir(parents=True)
+    defaults - full memory workflow when memory is enabled."""
+    project = _enable_memory(tmp_project, monkeypatch)
     fake_store = MagicMock(name="MemoryStore")
 
-    with patch("wren_langchain._providers.memory.MemoryStore", return_value=fake_store):
+    with patch("wren.providers.memory.MemoryStore", return_value=fake_store):
         toolkit = WrenToolkit.from_project(project)
         prompt = toolkit.system_prompt()
 

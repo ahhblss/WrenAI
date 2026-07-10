@@ -54,7 +54,7 @@ def duckdb_project(tmp_path, monkeypatch):
     (target / "mdl.json").write_text(json.dumps(manifest))
 
     monkeypatch.setattr(
-        "wren_langchain._providers.connection.list_profiles",
+        "wren.providers.connection.list_profiles",
         lambda: {
             "test": {
                 "datasource": "duckdb",
@@ -64,7 +64,7 @@ def duckdb_project(tmp_path, monkeypatch):
         },
     )
     monkeypatch.setattr(
-        "wren_langchain._providers.connection.get_active_profile",
+        "wren.providers.connection.get_active_profile",
         lambda: (
             "test",
             {

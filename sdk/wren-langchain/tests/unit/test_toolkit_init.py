@@ -66,7 +66,7 @@ def test_from_project_loads_dotenv_from_project_path(tmp_project, monkeypatch):
     sentinel_var = "WREN_LANGCHAIN_TEST_HOST_DOES_NOT_EXIST_IN_SHELL"
     monkeypatch.delenv(sentinel_var, raising=False)
     monkeypatch.setattr(
-        "wren_langchain._providers.connection.list_profiles",
+        "wren.providers.connection.list_profiles",
         lambda: {
             "test": {
                 "datasource": "duckdb",
@@ -76,7 +76,7 @@ def test_from_project_loads_dotenv_from_project_path(tmp_project, monkeypatch):
         },
     )
     monkeypatch.setattr(
-        "wren_langchain._providers.connection.get_active_profile",
+        "wren.providers.connection.get_active_profile",
         lambda: (
             "test",
             {

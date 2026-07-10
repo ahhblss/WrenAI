@@ -25,10 +25,10 @@ def tmp_project(tmp_path):
 def fake_active_profile(monkeypatch):
     """Patch profile resolution to return a duckdb in-memory active profile."""
     monkeypatch.setattr(
-        "wren_langchain._providers.connection.list_profiles",
+        "wren.providers.connection.list_profiles",
         lambda: {"test": {"datasource": "duckdb", "path": ":memory:"}},
     )
     monkeypatch.setattr(
-        "wren_langchain._providers.connection.get_active_profile",
+        "wren.providers.connection.get_active_profile",
         lambda: ("test", {"datasource": "duckdb", "path": ":memory:"}),
     )

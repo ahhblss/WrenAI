@@ -1,18 +1,10 @@
-"""SDK-specific exception types for wren-pydantic."""
+"""SDK-specific exception types for wren-pydantic.
 
+Re-exported from the shared ``wren.providers.exceptions`` module. New code
+should import from ``wren.providers`` directly.
+"""
 
-class WrenToolkitInitError(Exception):
-    """Raised when ``WrenToolkit.from_project(...)`` cannot validate prerequisites.
-
-    Examples include missing ``wren_project.yml``, missing ``target/mdl.json``,
-    or unresolvable profile.
-    """
-
-
-class MemoryNotEnabledError(Exception):
-    """Raised when memory operations are called but no memory provider is active.
-
-    Triggered by direct API access to ``toolkit.memory.*`` when the toolkit
-    was initialized against a project without ``.wren/memory/``. LLM-facing
-    tools handle this case via tool filtering, not by raising.
-    """
+from wren.providers.exceptions import (  # noqa: F401
+    MemoryNotEnabledError,
+    WrenToolkitInitError,
+)
