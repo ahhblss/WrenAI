@@ -7,14 +7,15 @@ import time
 
 import pytest
 
-from wren_mcp._bridge import run_blocked
+from wren_mcp._bridge import run_blocked, run_memory_blocked
 
 
 class _FakeState:
-    """Minimal stand-in for ServerState: only engine_lock + tool_timeout."""
+    """Minimal stand-in for ServerState: engine_lock + memory_lock + tool_timeout."""
 
     def __init__(self, *, timeout: float) -> None:
         self.engine_lock = asyncio.Lock()
+        self.memory_lock = asyncio.Lock()
         self.tool_timeout = timeout
 
 
@@ -82,3 +83,56 @@ async def test_run_blocked_serializes_via_lock() -> None:
         ["a-start", "a-end", "b-start", "b-end"],
         ["b-start", "b-end", "a-start", "a-end"],
     )
+
+
+async def test_run_memory_blocked_uses_memory_lock_not_engine_lock() -> None:
+    """run_memory_blocked holds memory_lock, leaving engine_lock free.
+
+    A memory call must proceed even while engine_lock is held by another
+    caller - the whole point of splitting the locks.
+    """
+    state = _FakeState(timeout=5)
+    async with state.engine_lock:
+        result = await run_memory_blocked(state, lambda: "ok")
+    assert result == "ok"
+    assert not state.memory_lock.locked()
+
+
+async def test_memory_call_does_not_block_engine_call() -> None:
+    """A slow memory call and an engine call overlap (separate locks).
+
+    Regression: before the split both shared engine_lock, so a slow embedding
+    call stalled every SQL query. With memory_lock separate they run
+    concurrently - the engine call must NOT wait for the 0.2s memory call.
+    """
+    state = _FakeState(timeout=5)
+    loop = asyncio.get_event_loop()
+    events: list[str] = []
+
+    def _slow_memory() -> str:
+        events.append("mem-start")
+        time.sleep(0.3)
+        events.append("mem-end")
+        return "mem"
+
+    def _engine() -> str:
+        events.append("eng-start")
+        time.sleep(0.2)
+        events.append("eng-end")
+        return "eng"
+
+    t0 = loop.time()
+    results = await asyncio.gather(
+        run_memory_blocked(state, _slow_memory),
+        run_blocked(state, _engine),
+    )
+    elapsed = loop.time() - t0
+    assert results == ["mem", "eng"]
+    # Separate locks -> the engine call runs DURING the memory call's sleep,
+    # so eng-end precedes mem-end. A shared lock would serialize the two
+    # (mem-end before eng-start), making this false.
+    assert events.index("eng-end") < events.index("mem-end"), (
+        f"engine did not overlap memory call: {events}"
+    )
+    # Wall time is ~max(0.3, 0.2)=0.3s, not the sum 0.5s a shared lock takes.
+    assert elapsed < 0.45, f"calls serialized (elapsed={elapsed:.2f}s): {events}"

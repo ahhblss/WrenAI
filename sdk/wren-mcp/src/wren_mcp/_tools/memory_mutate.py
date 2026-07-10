@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from wren_mcp._bridge import run_blocked
+from wren_mcp._bridge import run_memory_blocked
 from wren_mcp._envelope import make_error, make_success
 from wren_mcp._format import format_memory_dump_content
 
@@ -86,7 +86,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             }
 
         try:
-            result = await run_blocked(state, _index)
+            result = await run_memory_blocked(state, _index)
         except Exception as exc:
             return make_error(exc)
         content = (
@@ -145,7 +145,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             )
 
         try:
-            result = await run_blocked(state, _load)
+            result = await run_memory_blocked(state, _load)
         except Exception as exc:
             return make_error(exc)
         parts = []
@@ -178,7 +178,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             return state.memory_store().dump_queries(source=source)
 
         try:
-            rows = await run_blocked(state, _dump)
+            rows = await run_memory_blocked(state, _dump)
         except Exception as exc:
             return make_error(exc)
         content, warnings = format_memory_dump_content(rows)
@@ -222,7 +222,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             return store.forget_queries_by_source(source)  # type: ignore[arg-type]
 
         try:
-            deleted = await run_blocked(state, _forget)
+            deleted = await run_memory_blocked(state, _forget)
         except Exception as exc:
             return make_error(exc)
         scope = "ids" if ids else f"source:{source}"
@@ -260,7 +260,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             state.memory_store().reset()
 
         try:
-            await run_blocked(state, _reset)
+            await run_memory_blocked(state, _reset)
         except Exception as exc:
             return make_error(exc)
         return make_success(

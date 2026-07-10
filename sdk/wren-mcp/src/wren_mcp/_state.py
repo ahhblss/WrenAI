@@ -47,6 +47,7 @@ class ServerConfig:
         token: str | None = None,
         read_only: bool = False,
         tools: str = "all",
+        workers: int = 1,
     ):
         self.project_path = project_path
         self.profile = profile
@@ -57,6 +58,12 @@ class ServerConfig:
         # "tier1" = the 6 core SDK tools; "all" = full CLI surface (minus
         # long-running / destructive commands).
         self.tools = tools
+        # uvicorn worker process count. >1 spawns independent processes, each
+        # with its own engine/connector/lock, to scale SQL concurrency past the
+        # GIL and the single-process engine_lock. Costs N x memory and N x
+        # DB/Qdrant connections. workers==1 keeps the in-process server so
+        # state.close() runs on shutdown.
+        self.workers = workers
 
 
 class ServerState:
@@ -89,11 +96,17 @@ class ServerState:
         # Serializes all engine/connector/memory calls - they are blocking and
         # not concurrency-safe (one cached psycopg connection, etc.).
         self.engine_lock = asyncio.Lock()
+        # Memory (Qdrant/Ark) calls share no state with engine/connector calls
+        # (separate cached MemoryStore vs cached DB connection), so they run
+        # under a separate lock - an embedding call can proceed while a SQL
+        # query runs, and vice versa. See _bridge.run_memory_blocked.
+        self.memory_lock = asyncio.Lock()
         # Hard ceiling on any single tool call. A hung connector/embedding
-        # call can't hold engine_lock longer than this: run_blocked releases
-        # the lock on timeout so the server stays responsive (the worker
-        # thread itself can't be force-stopped, but it no longer blocks
-        # other calls). Defaults high enough that normal queries never trip.
+        # call can't hold its lock longer than this: run_blocked /
+        # run_memory_blocked release the lock on timeout so the server stays
+        # responsive (the worker thread itself can't be force-stopped, but it
+        # no longer blocks other calls). Defaults high enough that normal
+        # queries never trip.
         self.tool_timeout = float(os.getenv("WREN_MCP_TOOL_TIMEOUT", "120"))
 
     # ── Engine construction (mirrors WrenToolkit._build_engine) ──────────

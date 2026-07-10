@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
-from wren_mcp._bridge import run_blocked
+from wren_mcp._bridge import run_memory_blocked
 from wren_mcp._envelope import make_error, make_success
 from wren_mcp._format import (
     format_fetch_context_content,
@@ -58,7 +58,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             return store.get_context(**kwargs)
 
         try:
-            result = await run_blocked(state, _fetch)
+            result = await run_memory_blocked(state, _fetch)
         except Exception as exc:
             return make_error(exc)
         return make_success(
@@ -78,7 +78,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             return state.memory_store().recall_queries(query=question, limit=limit)
 
         try:
-            rows = await run_blocked(state, _recall)
+            rows = await run_memory_blocked(state, _recall)
         except Exception as exc:
             return make_error(exc)
         return make_success(
@@ -121,7 +121,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
                 )
 
             try:
-                await run_blocked(state, _store)
+                await run_memory_blocked(state, _store)
             except Exception as exc:
                 return make_error(exc)
             return make_success(

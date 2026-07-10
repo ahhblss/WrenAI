@@ -75,6 +75,18 @@ def _parse_args(argv: list[str] | None = None) -> ServerConfig:
         choices=["tier1", "all"],
         help="Tool tier: tier1 (6 core) or all (full CLI surface). Default all.",
     )
+    parser.add_argument(
+        "--workers",
+        default=1,
+        type=int,
+        help=(
+            "uvicorn worker process count (default 1). >1 spawns independent "
+            "processes, each with its own engine/connector/lock, to scale SQL "
+            "concurrency past the GIL. Costs N x memory + N x DB/Qdrant "
+            "connections. memory calls already run concurrently with engine "
+            "calls within each process (separate locks)."
+        ),
+    )
     args = parser.parse_args(argv)
 
     return ServerConfig(
@@ -85,7 +97,27 @@ def _parse_args(argv: list[str] | None = None) -> ServerConfig:
         token=args.token,
         read_only=args.read_only,
         tools=args.tools,
+        workers=args.workers,
     )
+
+
+def _export_config_env(config: ServerConfig) -> None:
+    """Stash config in env vars so uvicorn-spawned workers can rebuild it.
+
+    uvicorn workers are fresh processes (spawn, not fork) - they don't inherit
+    the master's Python objects, only the environment. Each worker's
+    ``app_factory`` reads these back to build its own ServerState.
+    """
+    os.environ["WREN_MCP_CFG_PROJECT"] = str(config.project_path)
+    if config.profile:
+        os.environ["WREN_MCP_CFG_PROFILE"] = config.profile
+    if config.token:
+        os.environ["WREN_MCP_CFG_TOKEN"] = config.token
+    os.environ["WREN_MCP_CFG_TOOLS"] = config.tools
+    os.environ["WREN_MCP_CFG_READ_ONLY"] = "1" if config.read_only else "0"
+    os.environ["WREN_MCP_CFG_HOST"] = config.host
+    os.environ["WREN_MCP_CFG_PORT"] = str(config.port)
+    os.environ["WREN_MCP_CFG_WORKERS"] = str(config.workers)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -104,9 +136,28 @@ def main(argv: list[str] | None = None) -> None:
         f"wren-mcp: serving project {state.project_path} "
         f"(datasource={state.datasource()!r}, "
         f"memory={'on' if state.memory_enabled else 'off'}, "
-        f"tools={config.tools}, read_only={config.read_only})",
+        f"tools={config.tools}, read_only={config.read_only}, "
+        f"workers={config.workers})",
         file=sys.stderr,
     )
+
+    if config.workers > 1:
+        # Multi-worker: hand off to uvicorn, which spawns N independent
+        # processes each calling app_factory() (config passed via env vars).
+        # The master's app/state above was for validation + the banner only;
+        # close it so it doesn't hold a DB/Qdrant connection it never serves.
+        _export_config_env(config)
+        state.close()
+        uvicorn.run(
+            "wren_mcp._app:app_factory",
+            factory=True,
+            host=config.host,
+            port=config.port,
+            workers=config.workers,
+            log_level="info",
+            timeout_graceful_shutdown=5,
+        )
+        return
 
     uv_config = uvicorn.Config(
         app,

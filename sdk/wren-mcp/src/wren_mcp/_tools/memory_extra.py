@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from wren_mcp._bridge import run_blocked
+from wren_mcp._bridge import run_memory_blocked
 from wren_mcp._envelope import make_error, make_success
 
 if TYPE_CHECKING:
@@ -37,7 +37,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             return describe_schema(state.load_manifest())
 
         try:
-            text = await run_blocked(state, _describe)
+            text = await run_memory_blocked(state, _describe)
         except Exception as exc:
             return make_error(exc)
         return make_success(
@@ -64,7 +64,7 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             return state.memory_store().status()
 
         try:
-            result = await run_blocked(state, _status)
+            result = await run_memory_blocked(state, _status)
         except Exception as exc:
             return make_error(exc)
         return make_success(content=str(result), data=result)
