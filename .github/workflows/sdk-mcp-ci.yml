@@ -1,0 +1,92 @@
+name: wren-mcp CI
+
+# Trigger sources are controlled events (pull_request, push to main,
+# workflow_dispatch). No untrusted payload is interpolated into run/env
+# contexts; ${{ matrix.* }} / ${{ github.* }} are confined to YAML-level fields.
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - 'sdk/wren-mcp/**'
+      - 'core/wren/src/wren/providers/**'
+      - '.github/workflows/sdk-mcp-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'sdk/wren-mcp/**'
+      - 'core/wren/src/wren/providers/**'
+      - '.github/workflows/sdk-mcp-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: sdk/wren-mcp
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      # wren-mcp consumes the shared provider trio (wren.providers) which lives
+      # in core/wren and is not yet on PyPI - install it editable first so the
+      # `wren.providers` import resolves during lint/test.
+      - name: Install core/wren (shared providers) + wren-mcp
+        run: |
+          uv pip install --system -e "../core/wren[memory]"
+          uv pip install --system -e ".[dev]"
+      - name: ruff check
+        run: ruff check .
+      - name: ruff format check
+        run: ruff format --check .
+
+  test:
+    name: tests (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: astral-sh/setup-uv@v4
+      - name: Install core/wren (shared providers) + wren-mcp
+        run: |
+          uv pip install --system -e "../core/wren[memory]"
+          uv pip install --system -e ".[dev]"
+      - name: Run tests
+        run: pytest -v
+
+  build:
+    name: build sdist + wheel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: astral-sh/setup-uv@v4
+      - name: Install build tool
+        run: uv pip install --system build
+      - name: Build distributions
+        run: python -m build
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: wren-mcp-dist
+          path: sdk/wren-mcp/dist/
