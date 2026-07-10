@@ -19,6 +19,11 @@ core/
 ├── wren/             Python SDK and CLI — `wren` command, profile/context/memory management (PyPI: wrenai)
 └── wren-mdl/         MDL JSON schema definition
 
+sdk/
+├── wren-mcp/          MCP server (streamable-http) exposing a Wren project to AI agents (PyPI: wren-mcp)
+├── wren-langchain/    LangChain WrenToolkit adapter
+└── wren-pydantic/     Pydantic AI WrenToolkit adapter
+
 docs/core/            Module documentation
 examples/             Example projects (placeholder — to be populated)
 skills/               CLI-based agent skills (wren-generate-mdl, wren-usage, wren-dlt-connector, wren-onboarding)
@@ -77,6 +82,15 @@ just build                # uv build (produces wheel)
 
 Uses `uv` (not Poetry). `pyproject.toml` uses `hatchling` as build backend. Optional extras: `postgres`, `mysql`, `bigquery`, `snowflake`, `clickhouse`, `trino`, `mssql`, `databricks`, `redshift`, `spark`, `athena`, `oracle`, `memory`, `all`, `dev`.
 
+### sdk/wren-mcp (MCP server)
+```bash
+cd sdk/wren-mcp
+just install      # uv sync (deps: wrenai + mcp + starlette + uvicorn + anyio)
+just test         # pytest
+# Tests reuse core/wren's venv (wrenai + mcp SDK installed) + PYTHONPATH=src:
+PYTHONPATH=src ../../core/wren/.venv/Scripts/python.exe -m pytest tests/
+```
+
 ## Architecture: Query Flow
 
 ```
@@ -100,6 +114,18 @@ SQL query
 - `manifest.rs` — `Manifest`, `Model`, `Column`, `Metric`, `Relationship`, `View`, `RowLevelAccessControl`, `ColumnLevelAccessControl`
 - `builder.rs` — Fluent `ManifestBuilder` API
 - Uses `wren-manifest-macro` for auto-generating Pydantic-compatible Python classes
+
+## wren-mcp (MCP server)
+
+`sdk/wren-mcp/` exposes a Wren project as a streamable-http MCP service for AI agents. It consumes the shared provider trio (`wren.providers`) + `WrenEngine` directly - it does **not** depend on `wren-langchain` or `wren-pydantic`.
+
+- **Single-project pinning**: one server = one project + profile resolved at startup. `wren_profile_switch` edits `~/.wren` but does NOT re-route the running server - restart to serve a new profile.
+- **Tool tiers**: Tier 1 (`wren_query`/`dry_plan`/`dry_run`/`list_models` + memory) always on; Tier 2 (`--tools all`, default) adds context/cube/profile/memory-mutate/genbi/types/ask/skills/docs. Memory tools auto-drop when `QDRANT_URL` is unset.
+- **read-only guard**: side-effect tools (`profile add/rm/switch`, `memory index/load/forget/reset`, `genbi deploy`, `context build`) return a `read-only` error envelope under `--read-only` instead of disappearing. `wren_memory_reset` additionally requires `force=true`.
+- **Concurrency**: `engine_lock` (asyncio.Lock) serializes every engine/connector/memory call - they are blocking and not thread-safe. `run_blocked` offloads to a worker thread under the lock.
+- **Memory/embedding**: memory tools need `QDRANT_URL` + `VOLC_ARK_API_KEY`. `doubao-embedding-vision` (as configured in the wren-test project) is a text embedding model (dim 2048) via `VOLC_ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/coding/v3` - despite the name it works for text.
+- **Testing**: over-wire tests use `streamablehttp_client` (the deprecated name; the new `streamable_http_client` rejects the `headers` kwarg). In-process tests use `build_mcp(ServerConfig(...))` + `await mcp.call_tool(name, args)` -> `(content, structuredEnvelope)`.
+- **cube_query** blocks in the Rust engine on a missing cube - test with a real cube or skip it.
 
 ## Known wren-core Limitations
 
