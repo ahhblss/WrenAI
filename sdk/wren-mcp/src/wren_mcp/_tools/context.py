@@ -130,5 +130,5 @@ def register(mcp: FastMCP, state: ServerState) -> None:
             return make_error(exc)
         return make_success(
             content=content or "(no business rules defined)",
-            data={"length": len(content)},
+            data={"length": len(content or "")},
         )

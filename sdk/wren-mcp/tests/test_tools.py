@@ -54,6 +54,18 @@ async def test_list_models_returns_envelope(tmp_project):
     assert structured["warnings"] == []
 
 
+async def test_context_instructions_handles_no_rules(tmp_project):
+    """wren_context_instructions returns ok on a project with no rules.
+
+    Regression: load_rules returns None content for a rule-less project, and
+    the tool used to crash on len(None). Now it returns an ok envelope.
+    """
+    mcp = build_mcp(ServerConfig(project_path=tmp_project, token="t", tools="all"))
+    _c, res = await mcp.call_tool("wren_context_instructions", {})
+    assert res["ok"] is True
+    assert "length" in res["data"]
+
+
 async def test_parse_type_normalizes(tmp_project):
     """wren_parse_type normalizes a postgres type via sqlglot."""
     mcp = build_mcp(ServerConfig(project_path=tmp_project, token="t", tools="all"))
