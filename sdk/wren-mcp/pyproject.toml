@@ -36,6 +36,8 @@ dependencies = [
   "uvicorn>=0.29",
   # async<->sync bridging around the blocking engine/connector/memory calls.
   "anyio>=4",
+  # HTTP client for the wren-datasource REST service (multi-project mode).
+  "httpx>=0.27",
 ]
 
 [project.optional-dependencies]

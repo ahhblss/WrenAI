@@ -85,9 +85,18 @@ Uses `uv` (not Poetry). `pyproject.toml` uses `hatchling` as build backend. Opti
 ### sdk/wren-mcp (MCP server)
 ```bash
 cd sdk/wren-mcp
-just install      # uv sync (deps: wrenai + mcp + starlette + uvicorn + anyio)
+just install      # uv sync (deps: wrenai + mcp + starlette + uvicorn + anyio + httpx)
 just test         # pytest
 # Tests reuse core/wren's venv (wrenai + mcp SDK installed) + PYTHONPATH=src:
+PYTHONPATH=src ../../core/wren/.venv/Scripts/python.exe -m pytest tests/
+```
+
+### sdk/wren-datasource (datasource management REST service)
+```bash
+cd sdk/wren-datasource
+just install      # uv sync (deps: wrenai + fastapi + uvicorn)
+just test         # pytest
+# Tests reuse core/wren's venv + PYTHONPATH=src:
 PYTHONPATH=src ../../core/wren/.venv/Scripts/python.exe -m pytest tests/
 ```
 
@@ -119,7 +128,7 @@ SQL query
 
 `sdk/wren-mcp/` exposes a Wren project as a streamable-http MCP service for AI agents. It consumes the shared provider trio (`wren.providers`) + `WrenEngine` directly - it does **not** depend on `wren-langchain` or `wren-pydantic`.
 
-- **Single-project pinning**: one server = one project + profile resolved at startup. `wren_profile_switch` edits `~/.wren` but does NOT re-route the running server - restart to serve a new profile.
+- **Single- vs multi-project**: single-project mode (default, `--project`) pins one project + profile at startup via `ServerState.from_config`; `wren_profile_switch` edits `~/.wren` but does NOT re-route the running server - restart to serve a new profile. Multi-project mode (`--datasource-url`) serves many projects from one process: `ProjectRoutingMiddleware` reads `X-Wren-Project` header -> `current_state` contextvar -> `ServerContext` dispatcher delegates per-project attrs (`query`/`engine_lock`/`project_path`/...) to the current `ServerState`; tools capture the dispatcher unchanged. `RestProjectRegistry` LRU-caches states (env `WREN_MCP_MAX_PROJECTS`, default 8), fetching connection info from the wren-datasource REST service. Memory isolated per project via Qdrant collection prefix `wren_{project_id}`. The contextvar propagates across `anyio.to_thread.run_sync` worker threads. In-process `call_tool` (no middleware) falls back to `registry.default_state`. See `sdk/wren-datasource/` and `.claude/plans/multi-project-datasource-rest.md`.
 - **Tool tiers**: Tier 1 (`wren_query`/`dry_plan`/`dry_run`/`list_models` + memory) always on; Tier 2 (`--tools all`, default) adds context/cube/profile/memory-mutate/genbi/types/ask/skills/docs. Memory tools auto-drop when `QDRANT_URL` is unset.
 - **read-only guard**: side-effect tools (`profile add/rm/switch`, `memory index/load/forget/reset`, `genbi deploy`, `context build`) return a `read-only` error envelope under `--read-only` instead of disappearing. `wren_memory_reset` additionally requires `force=true`.
 - **Concurrency**: two locks. `engine_lock` serializes engine/connector calls (single cached DB connection, not thread-safe); `memory_lock` serializes memory (Qdrant/Ark) calls separately - the two share no state, so an embedding call runs concurrently with a SQL query. `run_blocked`/`run_memory_blocked` offload to a worker thread under the respective lock, bounded by `state.tool_timeout` (env `WREN_MCP_TOOL_TIMEOUT`, default 120s): a hung call raises `TimeoutError` and releases the lock (worker thread can't be force-killed). Requires `abandon_on_cancel=True` on `anyio.to_thread.run_sync` - anyio shields the worker future by default, which would make the timeout wait for the thread.
@@ -128,6 +137,15 @@ SQL query
 - **Memory/embedding**: memory tools need `QDRANT_URL` + `VOLC_ARK_API_KEY`. `doubao-embedding-vision` (as configured in the wren-test project) is a text embedding model (dim 2048) via `VOLC_ARK_BASE_URL=https://ark.cn-beijing.volces.com/api/coding/v3` - despite the name it works for text.
 - **Testing**: over-wire tests use `streamablehttp_client` (the deprecated name; the new `streamable_http_client` rejects the `headers` kwarg). In-process tests use `build_mcp(ServerConfig(...))` + `await mcp.call_tool(name, args)` -> `(content, structuredEnvelope)`.
 - **cube_query** blocks in the Rust engine on a missing cube - test with a real cube or skip it.
+
+## wren-datasource (datasource management REST service)
+
+`sdk/wren-datasource/` is a standalone FastAPI REST service managing project registration + connection profiles + connection resolution. It replaces `~/.wren/profiles.yml` + `ProfileConnectionProvider` as the datasource management layer for wren-mcp multi-project mode. wren-mcp's `RestProjectRegistry` calls `GET /projects/{id}/connection` per project.
+
+- **Storage**: SQLite at `~/.wren/datasource.db` (env `WREN_DATASOURCE_DB`, override `--db-path`). Two tables: `profiles(name, datasource, config_json)` + `projects(id, name, project_path, profile_name)`. Profiles store `${ENV}` placeholders unexpanded; `expand_profile_secrets` runs only at resolution time. `--import-profiles` migrates `~/.wren/profiles.yml` on first start.
+- **API**: `POST/GET/DELETE /projects`, `POST/GET/DELETE /profiles` (redacted), `GET /projects/{id}/connection` -> `{datasource, connection_info, memory_collection_prefix}`, `GET /projects/{id}/manifest` (read-through `target/mdl.json`), `POST /projects/{id}/validate` (SELECT 1 via `get_connector`). All bearer-token gated.
+- **Reuses** `wren.profile.expand_profile_secrets`, `wren.model.DataSource.get_connection_info`, `wren.providers.ProjectMDLSource`, `wren.connector.factory.get_connector` - no logic duplicated.
+- **Security**: `/projects/{id}/connection` returns expanded DB credentials - must only travel to an authenticated wren-mcp over a trusted network (same-host unix socket or mTLS). Token (`--token` / `WREN_DATASOURCE_TOKEN`) is mandatory.
 
 ## Known wren-core Limitations
 

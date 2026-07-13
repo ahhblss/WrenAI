@@ -273,7 +273,10 @@ def memory_mcp(tmp_project, monkeypatch):
     """Tier-2 mcp with memory enabled but backed by an in-memory fake store."""
     monkeypatch.setenv("QDRANT_URL", "http://localhost:6333")
     mcp = build_mcp(ServerConfig(project_path=tmp_project, token="t", tools="all"))
-    monkeypatch.setattr(mcp._wren_state, "_memory", _FakeMemory())
+    # Inject a fake MemoryStore directly into the single-project state's cache
+    # so memory tools exercise the fake without a real Qdrant.
+    state = mcp._wren_ctx.registry.default_state
+    monkeypatch.setattr(state, "_memory_store_cache", _FakeStore())
     return mcp
 
 
